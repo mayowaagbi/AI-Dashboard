@@ -1,4 +1,3 @@
-import type React from "react";
 import { useState, useEffect } from "react";
 import {
   Card,
@@ -10,11 +9,57 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Send, Sparkles, BarChart3, Loader2 } from "lucide-react";
-import type { UploadedFile, QueryResult } from "@/types";
+import {
+  Send,
+  Sparkles,
+  BarChart3,
+  Loader2,
+  CheckCircle,
+  TrendingUp,
+} from "lucide-react";
+
+// Interface definitions
+interface DataRow {
+  [key: string]: any;
+}
+
+interface FileData {
+  name: string;
+  size: string;
+  rows: number;
+  columns: string[];
+  data: DataRow[] | undefined;
+}
+
+interface ChartData {
+  name: string;
+  value: number;
+}
+
+interface QueryResult {
+  query: string;
+  analysis: {
+    explanation: string;
+    insights: string[];
+    code: string;
+  };
+  chart: {
+    type: string;
+    data: ChartData[];
+  };
+  metadata: {
+    filename: string;
+    size_kb: number;
+    shape: string;
+  };
+  sample_data: any[];
+  columns: string[];
+  chartData: ChartData[];
+  chartType: string;
+}
 
 interface QueryInterfaceProps {
-  currentFile: UploadedFile;
+  currentFile: FileData;
   currentQuery: QueryResult | null;
   onQuerySubmit: (result: QueryResult) => void;
 }
@@ -27,6 +72,17 @@ export function QueryInterface({
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+
+  // Add data check at the start
+  if (!currentFile?.data || currentFile.data.length === 0) {
+    return (
+      <Card>
+        <CardContent className="p-6 text-center">
+          <p className="text-muted-foreground">No data available</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const sampleQueries = [
     "What are the top 5 values in the dataset?",
@@ -57,159 +113,64 @@ export function QueryInterface({
     setIsLoading(true);
     setQuery(queryText);
 
-    // Simulate AI processing with realistic delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1500));
 
-    // Generate response based on data
-    const columns = Object.keys(currentFile.data[0]).filter(
-      (key) => key !== "id"
-    );
-    const numericColumns = columns.filter(
-      (col) => typeof currentFile.data[0][col] === "number"
-    );
+      // Safely get columns
+      const firstRow = (currentFile.data ?? [])[0];
+      const columns = firstRow ? Object.keys(firstRow) : [];
 
-    let answer = "";
-    let chartData = null;
-    let chartType: "line" | "bar" | "pie" | "area" = "bar";
+      const numericColumns = columns.filter((col) => {
+        const value = firstRow[col];
+        return typeof value === "number" && !isNaN(value);
+      });
 
-    if (
-      queryText.toLowerCase().includes("chart") ||
-      queryText.toLowerCase().includes("graph")
-    ) {
-      if (numericColumns.length > 0) {
-        const col = numericColumns[0];
-
-        if (queryText.toLowerCase().includes("pie")) {
-          chartType = "pie";
-          // Group data for pie chart
-          const grouped = currentFile.data.reduce((acc: any, row) => {
-            const key = row[columns[0]]?.toString() || "Unknown";
-            acc[key] = (acc[key] || 0) + 1;
-            return acc;
-          }, {});
-
-          chartData = Object.entries(grouped)
-            .slice(0, 6)
-            .map(([name, value]) => ({
-              name,
-              value: value as number,
-            }));
-        } else if (queryText.toLowerCase().includes("line")) {
-          chartType = "line";
-          chartData = currentFile.data.slice(0, 10).map((row, index) => ({
-            name: `Point ${index + 1}`,
-            value: row[col] as number,
-          }));
-        } else {
-          chartType = "bar";
-          chartData = currentFile.data.slice(0, 10).map((row, index) => ({
-            name: row[columns[0]]?.toString() || `Item ${index + 1}`,
-            value: row[col] as number,
-          }));
-        }
-
-        answer = `I've created a ${chartType} chart showing ${col} data from your dataset. The visualization helps identify patterns and trends in your data.`;
-      } else {
-        answer =
-          "I couldn't create a chart as there are no numeric columns suitable for visualization. Try uploading data with numeric values.";
-      }
-    } else if (
-      queryText.toLowerCase().includes("average") ||
-      queryText.toLowerCase().includes("mean")
-    ) {
-      if (numericColumns.length > 0) {
-        const averages = numericColumns
-          .map((col) => {
-            const sum = currentFile.data.reduce(
-              (acc, row) => acc + (row[col] as number),
-              0
-            );
-            const avg = sum / currentFile.data.length;
-            return `**${col}**: ${avg.toFixed(2)}`;
-          })
-          .join(", ");
-        answer = `Here are the averages for your numeric columns: ${averages}. These values give you a central tendency measure for each numeric field.`;
-      } else {
-        answer =
-          "No numeric columns found to calculate averages. Your dataset appears to contain only text data.";
-      }
-    } else if (
-      queryText.toLowerCase().includes("top") ||
-      queryText.toLowerCase().includes("highest")
-    ) {
-      if (numericColumns.length > 0) {
-        const col = numericColumns[0];
-        const sorted = [...currentFile.data].sort(
-          (a, b) => (b[col] as number) - (a[col] as number)
-        );
-        const top5 = sorted.slice(0, 5);
-        answer = `**Top 5 highest values in ${col}**: ${top5
-          .map((row, i) => `${i + 1}. ${row[col]}`)
-          .join(", ")}. These represent the peak values in your dataset.`;
-
-        // Generate chart for top values
-        chartData = top5.map((row, index) => ({
-          name: `#${index + 1}`,
-          value: row[col] as number,
+      // Create chart data safely
+      const chartData: ChartData[] = (currentFile.data ?? [])
+        .slice(0, 5)
+        .map((row, idx) => ({
+          name: `Item ${idx + 1}`,
+          value:
+            numericColumns.length > 0 && row[numericColumns[0]] != null
+              ? Number(row[numericColumns[0]])
+              : idx + 1,
         }));
-        chartType = "bar";
-      } else {
-        answer =
-          "No numeric columns found to identify top values. Consider adding numeric data for statistical analysis.";
-      }
-    } else if (
-      queryText.toLowerCase().includes("summary") ||
-      queryText.toLowerCase().includes("insights")
-    ) {
-      const insights = [
-        `📊 **Dataset Overview**: ${currentFile.data.length} rows, ${columns.length} columns`,
-        `🔢 **Numeric Columns**: ${numericColumns.length} (${
-          numericColumns.join(", ") || "none"
-        })`,
-        `📝 **Text Columns**: ${columns.length - numericColumns.length}`,
-      ];
 
-      if (numericColumns.length > 0) {
-        const firstNumCol = numericColumns[0];
-        const values = currentFile.data.map(
-          (row) => row[firstNumCol] as number
-        );
-        const min = Math.min(...values);
-        const max = Math.max(...values);
-        insights.push(`📈 **${firstNumCol} Range**: ${min} to ${max}`);
-      }
+      // Transform response to match QueryResult type
+      const result: QueryResult = {
+        query: queryText,
+        analysis: {
+          explanation: "Here's the analysis of your data...",
+          insights: [
+            "Key insight 1 about your data",
+            "Key insight 2 about your data",
+          ],
+          code: "// Sample analysis code would appear here",
+        },
+        chart: {
+          type: "bar",
+          data: chartData,
+        },
+        metadata: {
+          filename: currentFile.name,
+          size_kb: parseFloat(currentFile.size) || 0,
+          shape: `${currentFile.rows}x${currentFile.columns.length}`,
+        },
+        sample_data: currentFile.data?.slice(0, 3) ?? [],
+        columns: currentFile.columns,
+        chartData: chartData,
+        chartType: "bar",
+      };
 
-      answer = insights.join("\n\n");
-    } else {
-      answer = `I analyzed your dataset "${currentFile.name}" with ${
-        currentFile.data.length
-      } rows and ${columns.length} columns. 
-
-**Available columns**: ${columns.join(", ")}
-**Numeric columns**: ${numericColumns.join(", ") || "none"}
-
-I can help you:
-• Create charts and visualizations
-• Calculate statistics (averages, sums, etc.)
-• Find top/bottom values
-• Identify trends and patterns
-• Generate insights and summaries
-
-Try asking specific questions like "show me a bar chart" or "what are the top 5 values"!`;
+      onQuerySubmit(result);
+      setQuery("");
+      setSuggestions([]);
+    } catch (error) {
+      console.error("Error processing query:", error);
+    } finally {
+      setIsLoading(false);
     }
-
-    const result: QueryResult = {
-      // id: Date.now().toString(),
-      query: queryText,
-      result: answer,
-      chartData,
-      chartType,
-    };
-
-    onQuerySubmit(result);
-    setQuery("");
-    setSuggestions([]);
-    setIsLoading(false);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -242,7 +203,7 @@ Try asking specific questions like "show me a bar chart" or "what are the top 5 
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <Input
-                    placeholder="e.g., 'Show me a bar chart of sales by month' or 'What are the top 10 values?'"
+                    placeholder="e.g., 'Show me a bar chart of sales by month'"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onKeyPress={handleKeyPress}
@@ -329,17 +290,36 @@ Try asking specific questions like "show me a bar chart" or "what are the top 5 
           </CardHeader>
           <CardContent>
             <div className="prose prose-sm max-w-none dark:prose-invert">
-              <div className="whitespace-pre-line">{currentQuery.result}</div>
+              <p>{currentQuery.analysis.explanation}</p>
+
+              {currentQuery.analysis.insights.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <p className="font-medium">Key Insights:</p>
+                  <ul className="space-y-1">
+                    {currentQuery.analysis.insights.map((insight, index) => (
+                      <li
+                        key={index}
+                        className="flex items-start gap-2 text-sm"
+                      >
+                        <TrendingUp className="h-4 w-4 mt-0.5 text-primary" />
+                        {insight}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
-            {currentQuery.chartData && (
+
+            {currentQuery.chartData && currentQuery.chartData.length > 0 && (
               <div className="mt-4 p-4 bg-primary/5 border border-primary/20 rounded-lg">
                 <div className="flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4 text-primary" />
-                  <p className="text-sm font-medium">Chart Generated!</p>
+                  <CheckCircle className="h-4 w-4 text-primary" />
+                  <p className="text-sm font-medium">
+                    {currentQuery.chartType} chart generated
+                  </p>
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">
-                  View the interactive {currentQuery.chartType} chart in the
-                  Charts tab above.
+                  View the visualization in the Charts tab
                 </p>
               </div>
             )}

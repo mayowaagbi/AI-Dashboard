@@ -223,7 +223,7 @@ def get_file_path(filename: str) -> str:
     return os.path.join(BASE_DIR, clean_filename)
 
 
-@router.post("/upload")
+@router.post("/api/upload")
 async def upload_file(file: UploadFile = File(...)):
     try:
         if not file.filename.lower().endswith(".csv"):
