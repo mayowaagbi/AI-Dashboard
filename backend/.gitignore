@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+env/
+venv/
+ENV/
+
+# IDEs/editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs and temp files
+*.log
+*.tmp
+*.bak
+
+# Environment variables
+.env
+.env.*
+
+# Byte-compiled files
+*.pyc
+
+# Cache
+.cache/
+pip-wheel-metadata/
+__pypackages__/
+
+# Test output
+htmlcov/
+coverage.xml
+.pytest_cache/
+
+# My app
+storage/user_data/
+storage/history/
+
+# SQLite or other DB files (if used locally)
+*.sqlite3
+*.db
