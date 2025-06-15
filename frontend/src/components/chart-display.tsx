@@ -1,28 +1,38 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import {
-  ResponsiveContainer,
   BarChart,
-  LineChart,
-  AreaChart,
-  PieChart,
-  ScatterChart,
-  Pie,
   Bar,
-  Line,
-  Area,
-  Scatter,
-  Cell,
-  CartesianGrid,
   XAxis,
   YAxis,
+  CartesianGrid,
+  Tooltip,
   Legend,
-  ReferenceLine,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
+  AreaChart,
+  Area,
+  ScatterChart,
+  Scatter,
 } from "recharts";
 import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Info,
+  Download,
+  Maximize2,
+  Minimize2,
+  Grid3X3,
+  Eye,
+  EyeOff,
+  Palette,
+  RotateCcw,
+  Settings,
+} from "lucide-react";
 import {
   Card,
   CardContent,
@@ -30,6 +40,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -37,121 +49,312 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import {
-  Download,
-  Maximize2,
-  Settings,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  Info,
-} from "lucide-react";
-
-interface ChartDisplayProps {
-  data: Array<{ name: string; value: number; [key: string]: any }>;
-  type: "line" | "bar" | "pie" | "area" | "scatter";
-  title: string;
-  insights?: string[];
-  explanation?: string;
-}
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 const COLORS = [
-  "hsl(var(--chart-1))",
-  "hsl(var(--chart-2))",
-  "hsl(var(--chart-3))",
-  "hsl(var(--chart-4))",
-  "hsl(var(--chart-5))",
-  "#8884d8",
-  "#82ca9d",
-  "#ffc658",
-  "#ff7300",
-  "#00ff00",
+  "#0088FE",
+  "#00C49F",
+  "#FFBB28",
+  "#FF8042",
+  "#8884D8",
+  "#82CA9D",
+  "#FFC658",
+  "#FF7C7C",
 ];
+
+const COLOR_SCHEMES = {
+  default: [
+    "#0088FE",
+    "#00C49F",
+    "#FFBB28",
+    "#FF8042",
+    "#8884D8",
+    "#82CA9D",
+    "#FFC658",
+    "#FF7C7C",
+  ],
+  blues: [
+    "#003f5c",
+    "#2f4b7c",
+    "#665191",
+    "#a05195",
+    "#d45087",
+    "#f95d6a",
+    "#ff7c43",
+    "#ffa600",
+  ],
+  greens: [
+    "#003d00",
+    "#006400",
+    "#228b22",
+    "#32cd32",
+    "#90ee90",
+    "#98fb98",
+    "#f0fff0",
+    "#ffffff",
+  ],
+  warm: [
+    "#8B0000",
+    "#DC143C",
+    "#FF6347",
+    "#FF7F50",
+    "#FFA500",
+    "#FFD700",
+    "#FFFF00",
+    "#F0E68C",
+  ],
+  cool: [
+    "#000080",
+    "#0000CD",
+    "#4169E1",
+    "#6495ED",
+    "#87CEEB",
+    "#B0C4DE",
+    "#E6E6FA",
+    "#F8F8FF",
+  ],
+  monochrome: [
+    "#000000",
+    "#333333",
+    "#666666",
+    "#999999",
+    "#CCCCCC",
+    "#DDDDDD",
+    "#EEEEEE",
+    "#F5F5F5",
+  ],
+};
 
 const CHART_TYPES = [
   { value: "bar", label: "Bar Chart", icon: "📊" },
   { value: "line", label: "Line Chart", icon: "📈" },
-  { value: "area", label: "Area Chart", icon: "🏔️" },
+  { value: "area", label: "Area Chart", icon: "📉" },
   { value: "pie", label: "Pie Chart", icon: "🥧" },
-  { value: "scatter", label: "Scatter Plot", icon: "⚪" },
+  { value: "scatter", label: "Scatter Plot", icon: "🔵" },
 ];
 
-export function EnhancedChartDisplay({
+const CustomTooltip = ({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ name: string; value: number; color: string }>;
+  label?: string;
+}) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-background p-3 border rounded-lg shadow-lg">
+        <p className="font-medium">{label}</p>
+        {payload.map((entry, index) => (
+          <p key={index} style={{ color: entry.color }} className="text-sm">
+            {`${entry.name}: ${entry.value.toLocaleString()}`}
+          </p>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
+
+interface ChartDisplayProps {
+  data: Array<{
+    name?: string;
+    category?: string;
+    value: number;
+    [key: string]: any;
+  }>;
+  type?: string;
+  title?: string;
+  insights?: string[];
+  explanation?: string;
+}
+
+const EnhancedChartDisplay = ({
   data,
   type: initialType,
   title,
   insights = [],
   explanation,
-}: ChartDisplayProps) {
-  const [chartType, setChartType] = useState(initialType);
+}: ChartDisplayProps) => {
+  const [chartType, setChartType] = useState(initialType || "bar");
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
   const [showLegend, setShowLegend] = useState(true);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(true);
+  const [colorScheme, setColorScheme] = useState("default");
+  const [showControls, setShowControls] = useState(false);
+  const chartRef = useRef<HTMLDivElement>(null);
 
-  // Calculate basic statistics
+  // Get current color palette
+  const currentColors =
+    COLOR_SCHEMES[colorScheme as keyof typeof COLOR_SCHEMES] ||
+    COLOR_SCHEMES.default;
+
+  // Download functionality
+  interface DownloadFormat {
+    format: "json" | "csv" | "png";
+  }
+
+  interface DataRow {
+    [key: string]: any;
+  }
+
+  interface ChartDataForDownload {
+    name: string;
+    value: number;
+    [key: string]: any;
+  }
+
+  const downloadChart = (format: DownloadFormat["format"]): void => {
+    const chartElement = chartRef.current;
+    if (!chartElement) return;
+
+    if (format === "json") {
+      const dataStr: string = JSON.stringify(normalizedData, null, 2);
+      const dataBlob: Blob = new Blob([dataStr], { type: "application/json" });
+      const url: string = URL.createObjectURL(dataBlob);
+      const link: HTMLAnchorElement = document.createElement("a");
+      link.href = url;
+      link.download = `${title || "chart-data"}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } else if (format === "csv") {
+      const headers: string[] = Object.keys(normalizedData[0] || {});
+      const csvContent: string = [
+        headers.join(","),
+        ...normalizedData.map((row: ChartDataForDownload) =>
+          headers
+            .map((header: string) => `"${(row as DataRow)[header] || ""}"`)
+            .join(",")
+        ),
+      ].join("\n");
+      const dataBlob: Blob = new Blob([csvContent], { type: "text/csv" });
+      const url: string = URL.createObjectURL(dataBlob);
+      const link: HTMLAnchorElement = document.createElement("a");
+      link.href = url;
+      link.download = `${title || "chart-data"}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } else if (format === "png") {
+      // For PNG export, we'll use html2canvas if available, otherwise show message
+      const svgElement: SVGSVGElement | null =
+        chartElement.querySelector("svg");
+      if (svgElement) {
+        const svgData: string = new XMLSerializer().serializeToString(
+          svgElement
+        );
+        const canvas: HTMLCanvasElement = document.createElement("canvas");
+        const ctx: CanvasRenderingContext2D | null = canvas.getContext("2d");
+        const img: HTMLImageElement = new Image();
+
+        img.onload = (): void => {
+          canvas.width = img.width;
+          canvas.height = img.height;
+          if (ctx) {
+            ctx.drawImage(img, 0, 0);
+            canvas.toBlob((blob: Blob | null): void => {
+              if (blob) {
+                const url: string = URL.createObjectURL(blob);
+                const link: HTMLAnchorElement = document.createElement("a");
+                link.href = url;
+                link.download = `${title || "chart"}.png`;
+                link.click();
+                URL.revokeObjectURL(url);
+              }
+            });
+          }
+        };
+
+        img.src =
+          "data:image/svg+xml;base64," +
+          btoa(unescape(encodeURIComponent(svgData)));
+      }
+    }
+  };
+
+  // Reset all settings
+  const resetSettings = () => {
+    setChartType(initialType || "bar");
+    setShowGrid(true);
+    setShowLegend(true);
+    setShowTooltip(true);
+    setColorScheme("default");
+    setIsFullscreen(false);
+  };
+
+  // Calculate statistics
   const stats = useMemo(() => {
     if (!data || data.length === 0) return null;
 
     const values = data
-      .map((d) => d.value)
+      .map((d) => d.value || d.category || 0)
       .filter((v) => typeof v === "number");
+    if (values.length === 0) return null;
+
     const total = values.reduce((sum, val) => sum + val, 0);
     const avg = total / values.length;
     const max = Math.max(...values);
     const min = Math.min(...values);
-    const maxItem = data.find((d) => d.value === max);
-    const minItem = data.find((d) => d.value === min);
+    const maxItem = data.find((d) => (d.value || d.category) === max);
+    const minItem = data.find((d) => (d.value || d.category) === min);
 
-    // Calculate trend (simple linear regression slope)
+    // Simple trend calculation
     const n = values.length;
     const sumX = values.reduce((sum, _, i) => sum + i, 0);
     const sumY = total;
     const sumXY = values.reduce((sum, val, i) => sum + i * val, 0);
     const sumXX = values.reduce((sum, _, i) => sum + i * i, 0);
-    const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    const slope =
+      n > 1 ? (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX) : 0;
 
     return {
       total: total.toLocaleString(),
       average: avg.toFixed(2),
-      max: { value: max.toLocaleString(), name: maxItem?.name },
-      min: { value: min.toLocaleString(), name: minItem?.name },
+      max: {
+        value: max.toLocaleString(),
+        name: maxItem?.name || maxItem?.category,
+      },
+      min: {
+        value: min.toLocaleString(),
+        name: minItem?.name || minItem?.category,
+      },
       count: data.length,
       trend: slope > 0.1 ? "up" : slope < -0.1 ? "down" : "stable",
+    } as {
+      total: string;
+      average: string;
+      max: { value: string; name: string | undefined };
+      min: { value: string; name: string | undefined };
+      count: number;
+      trend: "up" | "down" | "stable";
     };
   }, [data]);
 
-  const chartConfig = {
-    value: {
-      label: "Value",
-      color: "hsl(var(--chart-1))",
-    },
-  };
-
-  const getTrendIcon = (trend: string) => {
+  const getTrendIcon = (
+    trend: "up" | "down" | "stable"
+  ): React.ReactElement => {
     switch (trend) {
       case "up":
         return <TrendingUp className="h-4 w-4 text-green-500" />;
       case "down":
         return <TrendingDown className="h-4 w-4 text-red-500" />;
       default:
-        return <Minus className="h-4 w-4 text-gray-500" />;
+        return <Minus className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
-  const downloadChart = () => {
-    // In a real implementation, you'd convert the chart to an image
-    const chartData = JSON.stringify(data, null, 2);
-    const blob = new Blob([chartData], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `chart-data-${Date.now()}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
+  // Normalize data structure for different chart types
+  const normalizedData = useMemo(() => {
+    if (!data) return [];
+    return data.map((item) => ({
+      name: item.name || item.category || "Unknown",
+      ...item,
+      value: item.value || 0,
+    }));
+  }, [data]);
 
   const renderChart = () => {
     const chartHeight = isFullscreen ? 600 : 400;
@@ -161,8 +364,8 @@ export function EnhancedChartDisplay({
         return (
           <ResponsiveContainer width="100%" height={chartHeight}>
             <BarChart
-              data={data}
-              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+              data={normalizedData}
+              margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
             >
               {showGrid && (
                 <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
@@ -170,21 +373,17 @@ export function EnhancedChartDisplay({
               <XAxis
                 dataKey="name"
                 tick={{ fontSize: 12 }}
-                angle={data.length > 10 ? -45 : 0}
-                textAnchor={data.length > 10 ? "end" : "middle"}
-                height={data.length > 10 ? 80 : 60}
+                angle={normalizedData.length > 5 ? -45 : 0}
+                textAnchor={normalizedData.length > 5 ? "end" : "middle"}
+                height={60}
               />
               <YAxis tick={{ fontSize: 12 }} />
-              <ChartTooltip
-                content={<ChartTooltipContent />}
-                cursor={{ fill: "rgba(0, 0, 0, 0.1)" }}
-              />
+              {showTooltip && <Tooltip content={<CustomTooltip />} />}
               {showLegend && <Legend />}
               <Bar
                 dataKey="value"
-                fill="var(--color-value)"
+                fill={currentColors[0]}
                 radius={[4, 4, 0, 0]}
-                animationDuration={1000}
               />
             </BarChart>
           </ResponsiveContainer>
@@ -194,28 +393,28 @@ export function EnhancedChartDisplay({
         return (
           <ResponsiveContainer width="100%" height={chartHeight}>
             <LineChart
-              data={data}
-              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+              data={normalizedData}
+              margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
             >
               {showGrid && (
                 <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
               )}
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+              <XAxis
+                dataKey="name"
+                tick={{ fontSize: 12 }}
+                angle={-45}
+                textAnchor="end"
+                height={60}
+              />
               <YAxis tick={{ fontSize: 12 }} />
-              <ChartTooltip content={<ChartTooltipContent />} />
+              {showTooltip && <Tooltip content={<CustomTooltip />} />}
               {showLegend && <Legend />}
               <Line
                 type="monotone"
                 dataKey="value"
-                stroke="var(--color-value)"
+                stroke={currentColors[0]}
                 strokeWidth={3}
-                dot={{ fill: "var(--color-value)", strokeWidth: 2, r: 4 }}
-                activeDot={{
-                  r: 6,
-                  stroke: "var(--color-value)",
-                  strokeWidth: 2,
-                }}
-                animationDuration={1000}
+                dot={{ fill: currentColors[0], strokeWidth: 2, r: 4 }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -225,24 +424,29 @@ export function EnhancedChartDisplay({
         return (
           <ResponsiveContainer width="100%" height={chartHeight}>
             <AreaChart
-              data={data}
-              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+              data={normalizedData}
+              margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
             >
               {showGrid && (
                 <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
               )}
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+              <XAxis
+                dataKey="name"
+                tick={{ fontSize: 12 }}
+                angle={-45}
+                textAnchor="end"
+                height={60}
+              />
               <YAxis tick={{ fontSize: 12 }} />
-              <ChartTooltip content={<ChartTooltipContent />} />
+              {showTooltip && <Tooltip content={<CustomTooltip />} />}
               {showLegend && <Legend />}
               <Area
                 type="monotone"
                 dataKey="value"
-                stroke="var(--color-value)"
-                fill="var(--color-value)"
+                stroke={currentColors[0]}
+                fill={currentColors[0]}
                 fillOpacity={0.6}
                 strokeWidth={2}
-                animationDuration={1000}
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -253,26 +457,25 @@ export function EnhancedChartDisplay({
           <ResponsiveContainer width="100%" height={chartHeight}>
             <PieChart>
               <Pie
-                data={data}
+                data={normalizedData}
                 cx="50%"
                 cy="50%"
                 labelLine={false}
                 label={({ name, percent }) =>
                   `${name}: ${(percent * 100).toFixed(1)}%`
                 }
-                outerRadius={chartHeight * 0.25}
+                outerRadius={isFullscreen ? 180 : 120}
                 fill="#8884d8"
                 dataKey="value"
-                animationDuration={1000}
               >
-                {data.map((entry, index) => (
+                {normalizedData.map((entry, index) => (
                   <Cell
                     key={`cell-${index}`}
-                    fill={COLORS[index % COLORS.length]}
+                    fill={currentColors[index % currentColors.length]}
                   />
                 ))}
               </Pie>
-              <ChartTooltip content={<ChartTooltipContent />} />
+              {showTooltip && <Tooltip content={<CustomTooltip />} />}
               {showLegend && <Legend />}
             </PieChart>
           </ResponsiveContainer>
@@ -282,16 +485,17 @@ export function EnhancedChartDisplay({
         return (
           <ResponsiveContainer width="100%" height={chartHeight}>
             <ScatterChart
-              data={data}
-              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+              data={normalizedData}
+              margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
             >
               {showGrid && (
                 <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
               )}
               <XAxis dataKey="name" tick={{ fontSize: 12 }} />
               <YAxis dataKey="value" tick={{ fontSize: 12 }} />
-              <ChartTooltip content={<ChartTooltipContent />} />
-              <Scatter dataKey="value" fill="var(--color-value)" />
+              {showTooltip && <Tooltip content={<CustomTooltip />} />}
+              {showLegend && <Legend />}
+              <Scatter dataKey="value" fill={currentColors[0]} />
             </ScatterChart>
           </ResponsiveContainer>
         );
@@ -322,27 +526,22 @@ export function EnhancedChartDisplay({
 
   return (
     <div
-      className={`space-y-4 ${
+      className={`space-y-6 ${
         isFullscreen ? "fixed inset-0 z-50 bg-background p-6 overflow-auto" : ""
       }`}
     >
       <Card>
-        <CardHeader className="space-y-4 pb-4">
+        <CardHeader className="space-y-4">
           <div className="flex items-start justify-between">
             <div className="space-y-2">
-              <CardTitle className="text-lg">{title}</CardTitle>
-              {explanation && (
-                <CardDescription className="text-sm">
-                  {explanation}
-                </CardDescription>
-              )}
+              <CardTitle>{title}</CardTitle>
+              {explanation && <CardDescription>{explanation}</CardDescription>}
             </div>
+
+            {/* Main Controls */}
             <div className="flex items-center gap-2">
-              <Select
-                value={chartType}
-                onValueChange={(value: any) => setChartType(value)}
-              >
-                <SelectTrigger className="w-[140px]">
+              <Select value={chartType} onValueChange={setChartType}>
+                <SelectTrigger className="w-[160px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -356,18 +555,153 @@ export function EnhancedChartDisplay({
                   ))}
                 </SelectContent>
               </Select>
+
+              {/* Download Menu */}
+              <div className="relative">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => downloadChart("png")}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Download
+                </Button>
+              </div>
+
+              {/* Settings Toggle */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowControls(!showControls)}
+                className="flex items-center gap-2"
+              >
+                <Settings className="h-4 w-4" />
+                {showControls ? "Hide" : "Show"} Controls
+              </Button>
+
+              {/* Fullscreen Toggle */}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setIsFullscreen(!isFullscreen)}
               >
-                <Maximize2 className="h-4 w-4" />
+                {isFullscreen ? (
+                  <Minimize2 className="h-4 w-4" />
+                ) : (
+                  <Maximize2 className="h-4 w-4" />
+                )}
               </Button>
-              <Button variant="outline" size="sm" onClick={downloadChart}>
-                <Download className="h-4 w-4" />
-              </Button>
+
+              {isFullscreen && (
+                <Button
+                  variant="outline"
+                  onClick={() => setIsFullscreen(false)}
+                >
+                  Close
+                </Button>
+              )}
             </div>
           </div>
+
+          {/* Extended Controls Panel */}
+          {showControls && (
+            <div className="p-4 bg-muted/50 rounded-lg space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {/* Display Options */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Display Options</Label>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="show-grid" className="text-xs">
+                        Grid Lines
+                      </Label>
+                      <Switch
+                        id="show-grid"
+                        checked={showGrid}
+                        onCheckedChange={setShowGrid}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="show-legend" className="text-xs">
+                        Legend
+                      </Label>
+                      <Switch
+                        id="show-legend"
+                        checked={showLegend}
+                        onCheckedChange={setShowLegend}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="show-tooltip" className="text-xs">
+                        Tooltips
+                      </Label>
+                      <Switch
+                        id="show-tooltip"
+                        checked={showTooltip}
+                        onCheckedChange={setShowTooltip}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Color Scheme */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Color Scheme</Label>
+                  <Select value={colorScheme} onValueChange={setColorScheme}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="default">Default</SelectItem>
+                      <SelectItem value="blues">Blues</SelectItem>
+                      <SelectItem value="greens">Greens</SelectItem>
+                      <SelectItem value="warm">Warm</SelectItem>
+                      <SelectItem value="cool">Cool</SelectItem>
+                      <SelectItem value="monochrome">Monochrome</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Download Options */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Export Data</Label>
+                  <div className="space-y-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => downloadChart("json")}
+                      className="w-full text-xs"
+                    >
+                      JSON
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => downloadChart("csv")}
+                      className="w-full text-xs"
+                    >
+                      CSV
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Reset */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Reset</Label>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={resetSettings}
+                    className="w-full flex items-center gap-2 text-xs"
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    Reset All
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Statistics Overview */}
           {stats && (
@@ -383,27 +717,27 @@ export function EnhancedChartDisplay({
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">Highest</p>
                 <p className="text-sm font-semibold">{stats.max.value}</p>
-                <Badge variant="secondary" className="text-xs">
-                  {stats.max.name}
-                </Badge>
+                {stats.max.name && (
+                  <Badge variant="secondary" className="text-xs">
+                    {stats.max.name}
+                  </Badge>
+                )}
               </div>
-              <div className="space-y-1 flex items-center gap-2">
-                <div>
-                  <p className="text-xs text-muted-foreground">Trend</p>
-                  <div className="flex items-center gap-1">
-                    {getTrendIcon(stats.trend)}
-                    <span className="text-sm font-semibold capitalize">
-                      {stats.trend}
-                    </span>
-                  </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Trend</p>
+                <div className="flex items-center gap-1">
+                  {getTrendIcon(stats.trend)}
+                  <span className="text-sm font-semibold capitalize">
+                    {stats.trend}
+                  </span>
                 </div>
               </div>
             </div>
           )}
 
           {/* AI Insights */}
-          {insights.length > 0 && (
-            <div className="space-y-2">
+          {insights && insights.length > 0 && (
+            <div className="space-y-3">
               <h4 className="text-sm font-semibold flex items-center gap-2">
                 <Info className="h-4 w-4" />
                 AI Insights
@@ -429,91 +763,89 @@ export function EnhancedChartDisplay({
 
         <Separator />
 
-        <CardContent className="pt-6">
-          <ChartContainer config={chartConfig}>{renderChart()}</ChartContainer>
+        <CardContent className="pt-6" ref={chartRef}>
+          {renderChart()}
         </CardContent>
       </Card>
 
-      {/* Chart Controls */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Settings className="h-4 w-4" />
-            Chart Options
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={showGrid}
-                onChange={(e) => setShowGrid(e.target.checked)}
-                className="rounded"
-              />
-              Show Grid
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={showLegend}
-                onChange={(e) => setShowLegend(e.target.checked)}
-                className="rounded"
-              />
-              Show Legend
-            </label>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Data Summary Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">
-            Data Summary ({data.length} items)
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="max-h-48 overflow-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left p-2">Name</th>
-                  <th className="text-right p-2">Value</th>
-                  <th className="text-right p-2">Percentage</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.slice(0, 10).map((item, index) => {
-                  const total = data.reduce((sum, d) => sum + d.value, 0);
-                  const percentage = ((item.value / total) * 100).toFixed(1);
-                  return (
-                    <tr key={index} className="border-b hover:bg-muted/50">
-                      <td className="p-2">{item.name}</td>
-                      <td className="p-2 text-right font-mono">
-                        {item.value.toLocaleString()}
-                      </td>
-                      <td className="p-2 text-right text-muted-foreground">
-                        {percentage}%
-                      </td>
-                    </tr>
-                  );
-                })}
-                {data.length > 10 && (
-                  <tr>
-                    <td
-                      colSpan={3}
-                      className="p-2 text-center text-muted-foreground text-xs"
-                    >
-                      ... and {data.length - 10} more items
-                    </td>
+      {/* Data Summary Table - Hidden in fullscreen mode */}
+      {!isFullscreen && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              Data Summary ({normalizedData.length} items)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="max-h-64 overflow-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left p-2 font-medium">Name</th>
+                    <th className="text-right p-2 font-medium">Value</th>
+                    <th className="text-right p-2 font-medium">Percentage</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+                </thead>
+                <tbody>
+                  {normalizedData.map((item, index) => {
+                    const total = normalizedData.reduce(
+                      (sum, d) => sum + d.value,
+                      0
+                    );
+                    const percentage =
+                      total > 0
+                        ? ((item.value / total) * 100).toFixed(1)
+                        : "0.0";
+                    return (
+                      <tr key={index} className="border-b hover:bg-muted/50">
+                        <td className="p-2">{item.name}</td>
+                        <td className="p-2 text-right font-mono">
+                          {item.value.toLocaleString()}
+                        </td>
+                        <td className="p-2 text-right text-muted-foreground">
+                          {percentage}%
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
-}
+};
+
+export default EnhancedChartDisplay;
+
+// Demo component with sample data
+const ChartDemo = () => {
+  const sampleData = [
+    { name: "January", value: 4000 },
+    { name: "February", value: 3000 },
+    { name: "March", value: 5000 },
+    { name: "April", value: 4500 },
+    { name: "May", value: 6000 },
+    { name: "June", value: 5500 },
+  ];
+
+  const insights = [
+    "Sales show a strong upward trend with June being the peak month",
+    "March and June show the highest performance indicating seasonal patterns",
+    "Average monthly sales are 4,667 units with good consistency",
+  ];
+
+  return (
+    <div className="p-6 max-w-7xl mx-auto">
+      <EnhancedChartDisplay
+        data={sampleData}
+        type="bar"
+        title="Monthly Sales Performance"
+        explanation="This chart shows the sales performance across the first half of the year"
+        insights={insights}
+      />
+    </div>
+  );
+};

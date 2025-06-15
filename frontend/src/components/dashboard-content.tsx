@@ -713,7 +713,7 @@ import {
 import { FileUpload } from "./file-upload";
 import { QueryInterface } from "./query-interface";
 import { DataTable } from "./data-table";
-import { EnhancedChartDisplay } from "./chart-display";
+import EnhancedChartDisplay from "./chart-display";
 import type { QueryResult } from "./types";
 
 interface FileData {
@@ -737,7 +737,7 @@ export function DashboardContent({
   onQuerySubmit,
 }: DashboardContentProps) {
   const [activeTab, setActiveTab] = useState("upload");
-
+  const [sharedData, setSharedData] = useState<any>(null);
   useEffect(() => {
     if (currentFile && activeTab === "upload") {
       setActiveTab("query");
@@ -749,7 +749,9 @@ export function DashboardContent({
       setTimeout(() => setActiveTab("charts"), 2000);
     }
   }, [currentQuery?.chartData, activeTab]);
-
+  const handleQuerySubmit = (result: QueryResult) => {
+    setSharedData(result.chart);
+  };
   return (
     <SidebarInset className="border border-amber-400 m-0 w-full">
       <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
@@ -764,13 +766,12 @@ export function DashboardContent({
           </h2>
           {currentFile && (
             <Badge variant="secondary" className="ml-2">
-              {currentFile.rows.toLocaleString()} rows ×{" "}
-              {currentFile.columns.length} cols
+              {(currentFile.data?.length || 0).toLocaleString()} rows ×{" "}
+              {currentFile.columns?.length || 0} cols
             </Badge>
           )}
         </div>
       </header>
-
       <div className="p-6">
         {!currentFile ? (
           <div className="flex flex-col items-center justify-center space-y-8">
@@ -866,12 +867,12 @@ export function DashboardContent({
                       </div>
                       <div>
                         <span className="text-muted-foreground">Rows:</span>{" "}
-                        {currentFile.rows.toLocaleString()}
+                        {(currentFile.data?.length || 0).toLocaleString()}
                       </div>
                       <div className="col-span-2">
                         <span className="text-muted-foreground">Columns:</span>
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {currentFile.columns.map((col, index) => (
+                          {(currentFile.columns || []).map((col, index) => (
                             <Badge
                               key={index}
                               variant="outline"
@@ -893,6 +894,7 @@ export function DashboardContent({
                 currentFile={currentFile}
                 onQuerySubmit={(result) => onQuerySubmit(result.query, result)}
                 currentQuery={currentQuery}
+                onDataChange={(chart: any) => setSharedData(chart)}
               />
             </TabsContent>
 
@@ -920,7 +922,7 @@ export function DashboardContent({
             <TabsContent value="charts" className="space-y-6">
               {currentQuery?.chartData ? (
                 <EnhancedChartDisplay
-                  data={currentQuery.chartData}
+                  data={sharedData}
                   type={
                     ["line", "bar", "pie", "area"].includes(
                       currentQuery.chartType as string

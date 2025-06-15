@@ -150,7 +150,6 @@ interface FileUploadProps {
   onFileUpload: (file: FileData) => void;
   isLoading?: boolean;
 }
-
 export function FileUpload({ onFileUpload, isLoading }: FileUploadProps) {
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -176,8 +175,7 @@ export function FileUpload({ onFileUpload, isLoading }: FileUploadProps) {
           headers: {
             "Content-Type": "multipart/form-data",
           },
-          // Optional: Add timeout
-          timeout: 30000, // 30 seconds
+          timeout: 30000,
         }
       );
 
@@ -188,26 +186,22 @@ export function FileUpload({ onFileUpload, isLoading }: FileUploadProps) {
         size: result.size,
         columns: result.columns,
         rows: result.rows,
-        data: result.data ?? undefined,
+        // Create a mock data array with the correct length
+        // This ensures currentFile.data.length works in your dashboard
+        data: Array(result.rows).fill({}),
       };
 
       onFileUpload(fileData);
     } catch (err) {
       if (axios.isAxiosError(err)) {
-        // Handle Axios-specific errors
         if (err.response) {
-          // The request was made and the server responded with a status code
-          // that falls out of the range of 2xx
           setError(err.response.data.detail || "Upload failed");
         } else if (err.request) {
-          // The request was made but no response was received
           setError("No response from server. Please try again.");
         } else {
-          // Something happened in setting up the request
           setError(err.message || "Upload failed");
         }
       } else {
-        // Handle non-Axios errors
         setError(err instanceof Error ? err.message : "Upload failed");
       }
     } finally {

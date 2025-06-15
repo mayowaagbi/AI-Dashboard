@@ -12,8 +12,8 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
-import type { UploadedFile, QueryResult } from "@/types";
-import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
+import type { UploadedFile } from "@/types";
+// import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 
 interface AppSidebarProps {
   uploadedFiles: UploadedFile[];
@@ -22,7 +22,27 @@ interface AppSidebarProps {
   onFileSelect: (file: UploadedFile) => void;
   onQuerySelect: (query: QueryResult) => void;
 }
-
+export type QueryResult = {
+  query: string;
+  analysis: {
+    explanation: string;
+    insights: string[];
+    code: string;
+  };
+  chart: {
+    type: string;
+    data: any[];
+  };
+  metadata: {
+    filename: string;
+    size_kb: number;
+    shape: string;
+  };
+  sample_data: any[];
+  columns: string[];
+  chartData: any[];
+  chartType: string;
+};
 export function AppSidebar({
   uploadedFiles,
   queryHistory,
@@ -52,11 +72,11 @@ export function AppSidebar({
                   No files uploaded yet
                 </div>
               ) : (
-                uploadedFiles.map((file) => (
-                  <SidebarMenuItem>
+                uploadedFiles.map((file, index) => (
+                  <SidebarMenuItem key={file.name || `file-${index}`}>
                     <SidebarMenuButton
-                      // onClick={() => onFileSelect(file)}
-                      // isActive={currentFile?.id === file.id}
+                      onClick={() => onFileSelect(file)}
+                      isActive={currentFile?.name === file.name}
                       className="w-full justify-start"
                     >
                       <FileText className="h-4 w-4" />
@@ -89,9 +109,8 @@ export function AppSidebar({
                   No queries yet
                 </div>
               ) : (
-                queryHistory.slice(0, 10).map((query) => (
-                  <SidebarMenuItem>
-                    {/* // key={query.id} */}
+                queryHistory.slice(0, 10).map((query, index) => (
+                  <SidebarMenuItem key={`query-${index}`}>
                     <SidebarMenuButton
                       onClick={() => onQuerySelect(query)}
                       className="w-full justify-start"

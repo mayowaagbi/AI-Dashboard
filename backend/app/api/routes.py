@@ -366,7 +366,7 @@ async def post_question(data: askRequest):
         columns_json = json.dumps(columns)
 
         prompt = f"""
-You are a data analyst working with the following DataFrame:
+You are an expert business data analyst. Analyze this DataFrame and provide actionable business insights with Recharts.js configuration:
 
 COLUMNS: {columns_json}
 SAMPLE DATA: {sample_rows_json}
@@ -377,55 +377,201 @@ Return your response as STRICTLY VALID JSON parsable by `json.loads()`. Use this
 {{
   "charts": [
     {{
-      "code": "Pandas code that assigns the final chart data to a variable named result",
-      "chart": "bar|line|pie|None",
-      "explanation": "What this chart shows and why it's relevant",
-      "insights": ["Concise insight 1", "Concise insight 2"]
+      "pandas_code": "Pandas code that processes the data and ends with result variable",
+      "recharts_config": {{
+        "type": "BarChart|LineChart|PieChart",
+        "dataKey": "value",
+        "xAxisKey": "category",
+        "yAxisKey": "value",
+        "colors": ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"],
+        "title": "Chart Title",
+        "components": {{
+          "XAxis": {{"dataKey": "category"}},
+          "YAxis": {{}},
+          "CartesianGrid": {{"strokeDasharray": "3 3"}},
+          "Tooltip": {{}},
+          "Legend": {{}},
+          "Bar": {{"dataKey": "value", "fill": "#8884d8"}}
+        }}
+      }},
+      "explanation": "Detailed business analysis with specific findings and implications",
+      "insights": ["Actionable recommendation with specific numbers and next steps", "Strategic insight with clear business impact and suggested actions"]
     }}
   ]
 }}
 
-Instructions:
-- Each `code` block must end with a variable named `result` (DataFrame or Series).
-- `result` must contain only two columns: 'category' and 'value'.
-- Choose appropriate chart types: pie for proportions, line for trends, bar for categories.
-- Avoid operations that mutate the original DataFrame.
-- Do not include any markdown or extra text. Just output JSON.
-- All quotes must be escaped properly. Your response must not contain syntax errors.
-- You may return multiple chart blocks if relevant, otherwise just one.
+CRITICAL INSTRUCTIONS for pandas_code:
+- Write pandas code that processes the data and ends with: result = final_dataframe
+- The result must be a DataFrame with EXACTLY 2 columns: 'category' and 'value'
+- 'category' contains labels (product names, dates, categories) - NOT indices
+- 'value' contains numeric data for visualization
+- Example: result = df.groupby('Product')['Revenue'].sum().reset_index(); result.columns = ['category', 'value']
+
+RECHARTS CONFIG INSTRUCTIONS:
+- Choose appropriate chart type: BarChart for comparisons, LineChart for trends, PieChart for proportions
+- Set proper dataKey values that match your data structure
+- For BarChart: include Bar component with dataKey and fill color
+- For LineChart: include Line component with dataKey, stroke color, and strokeWidth
+- For PieChart: include Pie component with dataKey, cx, cy, outerRadius, fill, and label
+- Always include Tooltip and Legend components
+- Use meaningful colors from the provided palette
+
+RECHARTS COMPONENT EXAMPLES:
+
+For BarChart:
+{{
+  "type": "BarChart",
+  "components": {{
+    "XAxis": {{"dataKey": "category"}},
+    "YAxis": {{}},
+    "CartesianGrid": {{"strokeDasharray": "3 3"}},
+    "Tooltip": {{}},
+    "Legend": {{}},
+    "Bar": {{"dataKey": "value", "fill": "#8884d8"}}
+  }}
+}}
+
+For LineChart:
+{{
+  "type": "LineChart",
+  "components": {{
+    "XAxis": {{"dataKey": "category"}},
+    "YAxis": {{}},
+    "CartesianGrid": {{"strokeDasharray": "3 3"}},
+    "Tooltip": {{}},
+    "Legend": {{}},
+    "Line": {{"type": "monotone", "dataKey": "value", "stroke": "#8884d8", "strokeWidth": 2}}
+  }}
+}}
+
+For PieChart:
+{{
+  "type": "PieChart",
+  "components": {{
+    "Tooltip": {{}},
+    "Legend": {{}},
+    "Pie": {{"dataKey": "value", "cx": "50%", "cy": "50%", "outerRadius": 80, "fill": "#8884d8", "label": true}}
+  }}
+}}
+
+EXPLANATION REQUIREMENTS - Write like a business consultant:
+- Start with the key finding: "Analysis reveals..." or "The data shows..."
+- Include specific numbers, percentages, and comparisons
+- Explain what this means for the business (revenue impact, efficiency, risks)
+- Be detailed but focused on business implications
+- Minimum 50 words, avoid generic statements
+
+INSIGHTS REQUIREMENTS - Each insight must be a complete actionable recommendation:
+- Start with a specific action: "Increase marketing spend for...", "Prioritize inventory for...", "Investigate the decline in..."
+- Include the business rationale with numbers
+- Suggest next steps or metrics to monitor
+- Make each insight 30-50 words
+- Focus on decisions executives can act on
+
+CRITICAL: Do not wrap the JSON in markdown code blocks (```). Do not include any markdown, explanations, or extra text. Output ONLY the raw JSON object starting with {{ and ending with }}.
 """
 
-        chat_completion = client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": "You output only valid JSON"},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.2,
-            model="llama-3.3-70b-versatile",
-        )
+        # Add retry logic for LLM calls
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                chat_completion = client.chat.completions.create(
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "You are a JSON-only assistant. Return ONLY valid JSON without any markdown code blocks, explanations, or formatting. Do not use ``` or any other markdown.",
+                        },
+                        {"role": "user", "content": prompt},
+                    ],
+                    temperature=0.1,
+                    model="llama-3.3-70b-versatile",
+                )
 
-        content = chat_completion.choices[0].message.content
+                content = chat_completion.choices[0].message.content
 
-        try:
-            llm_response = json.loads(content)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Invalid JSON from LLM: {e}")
+                # Debug logging
+                print(
+                    f"LLM Response (attempt {attempt + 1}):",
+                    content[:200] + "..." if len(content) > 200 else content,
+                )
 
-        # Handle both old and new response formats
+                if not content or content.strip() == "":
+                    raise ValueError("Empty response from LLM")
+
+                # Clean the content - handle markdown code blocks
+                content = content.strip()
+
+                # Remove opening markdown blocks
+                if content.startswith("```json"):
+                    content = content[7:]
+                elif content.startswith("```"):
+                    content = content[3:]
+
+                # Remove closing markdown blocks
+                if content.endswith("```"):
+                    content = content[:-3]
+
+                content = content.strip()
+
+                try:
+                    llm_response = json.loads(content)
+                except json.JSONDecodeError as json_err:
+                    print(f"JSON Parse Error: {json_err}")
+                    print(f"Raw content: {repr(content)}")
+                    if attempt == max_retries - 1:
+                        raise HTTPException(
+                            status_code=500,
+                            detail=f"Invalid JSON from LLM after {max_retries} attempts: {json_err}",
+                        )
+                    continue
+
+                break
+
+            except Exception as e:
+                print(f"LLM API Error (attempt {attempt + 1}): {e}")
+                if attempt == max_retries - 1:
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"LLM API failed after {max_retries} attempts: {str(e)}",
+                    )
+                continue
+
+        # Validate response structure
+        if not isinstance(llm_response, dict):
+            raise HTTPException(
+                status_code=500, detail="LLM response is not a JSON object"
+            )
+
         if "charts" in llm_response and llm_response["charts"]:
+            if (
+                not isinstance(llm_response["charts"], list)
+                or len(llm_response["charts"]) == 0
+            ):
+                raise HTTPException(
+                    status_code=500, detail="LLM response charts field is invalid"
+                )
             chart_data = llm_response["charts"][0]
         else:
             chart_data = llm_response
 
-        required_keys = {"code", "chart", "explanation", "insights"}
-        if not all(k in chart_data for k in required_keys):
-            raise HTTPException(status_code=422, detail="LLM response missing fields")
+        # Validate required keys for new format
+        required_keys = {"pandas_code", "recharts_config", "explanation", "insights"}
+        missing_keys = required_keys - set(chart_data.keys())
+        if missing_keys:
+            raise HTTPException(
+                status_code=422,
+                detail=f"LLM response missing required fields: {missing_keys}",
+            )
 
-        llm_code = chart_data["code"]
+        # Execute pandas code to get data
+        llm_code = chart_data["pandas_code"]
         safe_locals = {"df": df.copy()}
+
         try:
             exec(llm_code, {"pd": pd, "np": np}, safe_locals)
         except Exception as e:
+            print(f"Code execution error: {e}")
+            print(f"Generated code: {llm_code}")
             raise HTTPException(
                 status_code=400, detail=f"Error executing AI code: {str(e)}"
             )
@@ -436,14 +582,18 @@ Instructions:
                 status_code=400, detail="No variable 'result' found in AI code output"
             )
 
+        # Convert result to proper format
         if isinstance(result, pd.DataFrame):
-            chart_data_records = result.reset_index().to_dict(orient="records")
+            chart_data_records = result.to_dict(orient="records")
         elif isinstance(result, pd.Series):
             chart_data_records = result.reset_index().to_dict(orient="records")
         else:
             raise HTTPException(
                 status_code=400, detail="Unsupported result format for charting"
             )
+
+        if not chart_data_records:
+            raise HTTPException(status_code=400, detail="Generated chart data is empty")
 
         # Save to history
         try:
@@ -452,27 +602,28 @@ Instructions:
             )
             entry = {
                 "question": data.question,
-                "code": chart_data["code"],
-                "chart": chart_data["chart"],
+                "pandas_code": chart_data["pandas_code"],
+                "recharts_config": chart_data["recharts_config"],
                 "explanation": chart_data["explanation"],
                 "insights": chart_data["insights"],
             }
             os.makedirs(os.path.dirname(history_path), exist_ok=True)
             with open(history_path, "a") as f:
                 f.write(json.dumps(entry) + "\n")
-        except Exception:
-            # Don't fail the request if history saving fails
-            pass
+        except Exception as e:
+            print(f"History saving failed: {e}")
 
-        return {
+        # Prepare final response with Recharts config
+        response_data = {
             "analysis": {
                 "explanation": chart_data["explanation"],
                 "insights": chart_data["insights"],
-                "code": chart_data["code"],
+                "pandas_code": chart_data["pandas_code"],
             },
             "chart": {
-                "type": chart_data["chart"],
+                "type": chart_data["recharts_config"]["type"],
                 "data": chart_data_records,
+                "config": chart_data["recharts_config"],
             },
             "metadata": {
                 "filename": os.path.basename(path),
@@ -483,9 +634,22 @@ Instructions:
             "columns": columns,
         }
 
+        # Validate final response can be JSON serialized
+        try:
+            json.dumps(response_data)
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Response data cannot be JSON serialized: {str(e)}",
+            )
+
+        print("Successful response:", json.dumps(response_data, indent=2)[:500] + "...")
+        return response_data
+
     except HTTPException:
         raise
     except Exception as e:
+        print(f"Unexpected error: {e}")
         raise HTTPException(
             status_code=500, detail=f"Failed to handle question: {str(e)}"
         )
