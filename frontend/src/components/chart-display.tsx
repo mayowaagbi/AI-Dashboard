@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef } from "react";
+import type { ReactElement } from "react";
 import {
   BarChart,
   Bar,
@@ -26,104 +27,137 @@ import {
   Download,
   Maximize2,
   Minimize2,
-  Grid3X3,
-  Eye,
-  EyeOff,
-  Palette,
-  RotateCcw,
   Settings,
+  RotateCcw,
+  Sun,
+  Moon,
 } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { useTheme } from "next-themes";
 
-const COLORS = [
-  "#0088FE",
-  "#00C49F",
-  "#FFBB28",
-  "#FF8042",
-  "#8884D8",
-  "#82CA9D",
-  "#FFC658",
-  "#FF7C7C",
-];
-
-const COLOR_SCHEMES = {
+// Theme-aware color schemes
+const LIGHT_COLORS = {
   default: [
-    "#0088FE",
-    "#00C49F",
-    "#FFBB28",
-    "#FF8042",
-    "#8884D8",
-    "#82CA9D",
-    "#FFC658",
-    "#FF7C7C",
+    "#3b82f6",
+    "#10b981",
+    "#f59e0b",
+    "#ef4444",
+    "#8b5cf6",
+    "#06b6d4",
+    "#84cc16",
+    "#f97316",
   ],
   blues: [
-    "#003f5c",
-    "#2f4b7c",
-    "#665191",
-    "#a05195",
-    "#d45087",
-    "#f95d6a",
-    "#ff7c43",
-    "#ffa600",
+    "#1e40af",
+    "#2563eb",
+    "#3b82f6",
+    "#60a5fa",
+    "#93c5fd",
+    "#dbeafe",
+    "#eff6ff",
+    "#f8fafc",
   ],
   greens: [
-    "#003d00",
-    "#006400",
-    "#228b22",
-    "#32cd32",
-    "#90ee90",
-    "#98fb98",
-    "#f0fff0",
-    "#ffffff",
+    "#166534",
+    "#15803d",
+    "#16a34a",
+    "#22c55e",
+    "#4ade80",
+    "#86efac",
+    "#bbf7d0",
+    "#f0fdf4",
   ],
   warm: [
-    "#8B0000",
-    "#DC143C",
-    "#FF6347",
-    "#FF7F50",
-    "#FFA500",
-    "#FFD700",
-    "#FFFF00",
-    "#F0E68C",
+    "#dc2626",
+    "#ea580c",
+    "#d97706",
+    "#ca8a04",
+    "#eab308",
+    "#facc15",
+    "#fde047",
+    "#fef3c7",
   ],
   cool: [
-    "#000080",
-    "#0000CD",
-    "#4169E1",
-    "#6495ED",
-    "#87CEEB",
-    "#B0C4DE",
-    "#E6E6FA",
-    "#F8F8FF",
+    "#1e40af",
+    "#3730a3",
+    "#4338ca",
+    "#6366f1",
+    "#8b5cf6",
+    "#a855f7",
+    "#c084fc",
+    "#e879f9",
   ],
   monochrome: [
+    "#374151",
+    "#4b5563",
+    "#6b7280",
+    "#9ca3af",
+    "#d1d5db",
+    "#e5e7eb",
+    "#f3f4f6",
+    "#f9fafb",
+  ],
+};
+
+const DARK_COLORS = {
+  default: [
+    "#60a5fa",
     "#000000",
-    "#333333",
-    "#666666",
-    "#999999",
-    "#CCCCCC",
-    "#DDDDDD",
-    "#EEEEEE",
-    "#F5F5F5",
+    "#fbbf24",
+    "#f87711  ",
+    "#a78bfa",
+    "#22d3ee",
+    "#a3e635",
+    "#fb923c",
+  ],
+  blues: [
+    "#93c5fd",
+    "#60a5fa",
+    "#3b82f6",
+    "#2563eb",
+    "#1d4ed8",
+    "#1e40af",
+    "#1e3a8a",
+    "#172554",
+  ],
+  greens: [
+    "#86efac",
+    "#4ade80",
+    "#22c55e",
+    "#16a34a",
+    "#15803d",
+    "#166534",
+    "#14532d",
+    "#052e16",
+  ],
+  warm: [
+    "#fca5a5",
+    "#fb7185",
+    "#f472b6",
+    "#e879f9",
+    "#c084fc",
+    "#a855f7",
+    "#9333ea",
+    "#7c3aed",
+  ],
+  cool: [
+    "#93c5fd",
+    "#818cf8",
+    "#8b5cf6",
+    "#a855f7",
+    "#c084fc",
+    "#d8b4fe",
+    "#e9d5ff",
+    "#f3e8ff",
+  ],
+  monochrome: [
+    "#e5e7eb",
+    "#d1d5db",
+    "#9ca3af",
+    "#6b7280",
+    "#4b5563",
+    "#374151",
+    "#1f2937",
+    "#111827",
   ],
 };
 
@@ -135,22 +169,92 @@ const CHART_TYPES = [
   { value: "scatter", label: "Scatter Plot", icon: "🔵" },
 ];
 
+const CHART_TYPE_MAPPING: Record<string, string> = {
+  BarChart: "bar",
+  LineChart: "line",
+  AreaChart: "area",
+  PieChart: "pie",
+  ScatterChart: "scatter",
+  ScatterPlot: "scatter",
+  bar: "bar",
+  line: "line",
+  area: "area",
+  pie: "pie",
+  scatter: "scatter",
+};
+
+interface ChartItem {
+  name?: string;
+  category?: string;
+  label?: string;
+  value?: number;
+  count?: number;
+  amount?: number;
+  [key: string]: any;
+}
+
+interface InputChartData {
+  chart?: {
+    data: ChartItem[];
+    type: string;
+  };
+  chartData?: ChartItem[];
+  chartType?: string;
+  data?: ChartItem[];
+  type?: string;
+  metadata?: Metadata;
+  query?: string;
+}
+
+interface DataItem {
+  name: string;
+  value: number;
+  [key: string]: any;
+}
+
+interface Metadata {
+  filename?: string;
+  size_kb?: number;
+  shape?: string;
+  [key: string]: any;
+}
+
+interface AdaptedChartData {
+  data: DataItem[];
+  type: string;
+  title: string;
+  insights: string[];
+  metadata: Metadata;
+}
+
 const CustomTooltip = ({
   active,
   payload,
   label,
+  isDark,
 }: {
   active?: boolean;
-  payload?: Array<{ name: string; value: number; color: string }>;
+  payload?: any[];
   label?: string;
+  isDark: boolean;
 }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-background p-3 border rounded-lg shadow-lg">
+      <div
+        className={`p-3 border rounded-lg shadow-lg ${
+          isDark
+            ? "bg-gray-800 border-gray-600 text-white"
+            : "bg-white border-gray-200 text-gray-900"
+        }`}
+      >
         <p className="font-medium">{label}</p>
-        {payload.map((entry, index) => (
-          <p key={index} style={{ color: entry.color }} className="text-sm">
-            {`${entry.name}: ${entry.value.toLocaleString()}`}
+        {payload.map((entry, idx) => (
+          <p key={idx} className="text-sm" style={{ color: entry.color }}>
+            {`${entry.name}: ${
+              typeof entry.value === "number"
+                ? entry.value.toLocaleString()
+                : entry.value
+            }`}
           </p>
         ))}
       </div>
@@ -159,125 +263,150 @@ const CustomTooltip = ({
   return null;
 };
 
-interface ChartDisplayProps {
-  data: Array<{
-    name?: string;
-    category?: string;
-    value: number;
-    [key: string]: any;
-  }>;
-  type?: string;
-  title?: string;
-  insights?: string[];
-  explanation?: string;
+const adaptChartData = (
+  inputData: InputChartData | ChartItem[] | null | undefined
+): AdaptedChartData => {
+  if (!inputData)
+    return { data: [], type: "bar", title: "", insights: [], metadata: {} };
+
+  let data: ChartItem[], type: string, metadata: Metadata, query: string;
+
+  if (!Array.isArray(inputData) && inputData.type && inputData.data) {
+    data = inputData.data;
+    type = inputData.type;
+    metadata = inputData.metadata || {};
+    query = inputData.query || "";
+  } else if (
+    !Array.isArray(inputData) &&
+    inputData.chart &&
+    inputData.chartData
+  ) {
+    data = inputData.chartData;
+    type = inputData.chartType || inputData.chart.type;
+    metadata = inputData.metadata || {};
+    query = inputData.query || "";
+  } else if (Array.isArray(inputData)) {
+    data = inputData;
+    type = "bar";
+    metadata = {};
+    query = "";
+  } else {
+    return { data: [], type: "bar", title: "", insights: [], metadata: {} };
+  }
+
+  const normalized: DataItem[] = data.map((item: ChartItem) => ({
+    name: item.name || item.category || item.label || "Unknown",
+    value: Number(item.value ?? item.count ?? item.amount) || 0,
+    ...item,
+  }));
+
+  const normalizedType: string = CHART_TYPE_MAPPING[type] || "bar";
+
+  let title: string = "Chart Data";
+  if (query) title = query;
+  else if (metadata.filename) title = `Data from ${metadata.filename}`;
+
+  const insights: string[] = generateInsights(normalized, metadata);
+
+  return { data: normalized, type: normalizedType, title, insights, metadata };
+};
+
+const generateInsights = (data: DataItem[], metadata: Metadata): string[] => {
+  if (!data.length) return [];
+  const vals = data.map((d) => d.value).filter((v) => !isNaN(v));
+  if (!vals.length) return [];
+
+  const total = vals.reduce((sum, v) => sum + v, 0);
+  const max = Math.max(...vals);
+  const min = Math.min(...vals);
+  const avg = total / vals.length;
+  const maxItem = data.find((d) => d.value === max);
+  const insights: string[] = [];
+
+  if (maxItem)
+    insights.push(
+      `${maxItem.name} has the highest value at ${max.toLocaleString()}`
+    );
+  insights.push(
+    `${vals.filter((v) => v > avg).length} out of ${
+      data.length
+    } items are above the average of ${avg.toFixed(2)}`
+  );
+  if (max !== min) {
+    const range = (((max - min) / max) * 100).toFixed(1);
+    insights.push(
+      `There's a ${range}% difference between the highest and lowest values`
+    );
+  }
+  if (metadata.filename)
+    insights.push(`Data sourced from ${metadata.filename}`);
+  return insights;
+};
+
+interface EnhancedChartDisplayProps {
+  chartData: InputChartData | ChartItem[] | null | undefined;
+  className?: string;
 }
 
-const EnhancedChartDisplay = ({
-  data,
-  type: initialType,
-  title,
-  insights = [],
-  explanation,
-}: ChartDisplayProps) => {
-  const [chartType, setChartType] = useState(initialType || "bar");
+const EnhancedChartDisplay: React.FC<EnhancedChartDisplayProps> = ({
+  chartData,
+  className = "",
+}) => {
+  const { theme, setTheme } = useTheme();
+  const adapted = useMemo(() => adaptChartData(chartData), [chartData]);
+  const [chartType, setChartType] = useState(adapted.type);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
   const [showLegend, setShowLegend] = useState(true);
   const [showTooltip, setShowTooltip] = useState(true);
   const [colorScheme, setColorScheme] = useState("default");
   const [showControls, setShowControls] = useState(false);
-  const chartRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef(null);
 
-  // Get current color palette
-  const currentColors =
-    COLOR_SCHEMES[colorScheme as keyof typeof COLOR_SCHEMES] ||
-    COLOR_SCHEMES.default;
+  // Determine if dark mode should be used
+  const isDark = theme === "dark";
 
-  // Download functionality
-  interface DownloadFormat {
-    format: "json" | "csv" | "png";
-  }
+  const colors = useMemo(() => {
+    const colorSet = isDark ? DARK_COLORS : LIGHT_COLORS;
+    return colorSet[colorScheme as keyof typeof colorSet] || colorSet.default;
+  }, [isDark, colorScheme]);
 
-  interface DataRow {
-    [key: string]: any;
-  }
-
-  interface ChartDataForDownload {
-    name: string;
-    value: number;
-    [key: string]: any;
-  }
-
-  const downloadChart = (format: DownloadFormat["format"]): void => {
-    const chartElement = chartRef.current;
-    if (!chartElement) return;
-
+  const downloadChart = (format: "json" | "csv"): void => {
     if (format === "json") {
-      const dataStr: string = JSON.stringify(normalizedData, null, 2);
-      const dataBlob: Blob = new Blob([dataStr], { type: "application/json" });
-      const url: string = URL.createObjectURL(dataBlob);
-      const link: HTMLAnchorElement = document.createElement("a");
-      link.href = url;
-      link.download = `${title || "chart-data"}.json`;
-      link.click();
+      const blob = new Blob([JSON.stringify(adapted.data, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${adapted.title
+        .replace(/[^a-z0-9]/gi, "_")
+        .toLowerCase()}.json`;
+      a.click();
       URL.revokeObjectURL(url);
     } else if (format === "csv") {
-      const headers: string[] = Object.keys(normalizedData[0] || {});
-      const csvContent: string = [
+      if (!adapted.data.length) return;
+      const headers = Object.keys(adapted.data[0]);
+      const csv = [
         headers.join(","),
-        ...normalizedData.map((row: ChartDataForDownload) =>
-          headers
-            .map((header: string) => `"${(row as DataRow)[header] || ""}"`)
-            .join(",")
+        ...adapted.data.map((row: DataItem) =>
+          headers.map((h: string) => `"${row[h] || ""}"`).join(",")
         ),
       ].join("\n");
-      const dataBlob: Blob = new Blob([csvContent], { type: "text/csv" });
-      const url: string = URL.createObjectURL(dataBlob);
-      const link: HTMLAnchorElement = document.createElement("a");
-      link.href = url;
-      link.download = `${title || "chart-data"}.csv`;
-      link.click();
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${adapted.title
+        .replace(/[^a-z0-9]/gi, "_")
+        .toLowerCase()}.csv`;
+      a.click();
       URL.revokeObjectURL(url);
-    } else if (format === "png") {
-      // For PNG export, we'll use html2canvas if available, otherwise show message
-      const svgElement: SVGSVGElement | null =
-        chartElement.querySelector("svg");
-      if (svgElement) {
-        const svgData: string = new XMLSerializer().serializeToString(
-          svgElement
-        );
-        const canvas: HTMLCanvasElement = document.createElement("canvas");
-        const ctx: CanvasRenderingContext2D | null = canvas.getContext("2d");
-        const img: HTMLImageElement = new Image();
-
-        img.onload = (): void => {
-          canvas.width = img.width;
-          canvas.height = img.height;
-          if (ctx) {
-            ctx.drawImage(img, 0, 0);
-            canvas.toBlob((blob: Blob | null): void => {
-              if (blob) {
-                const url: string = URL.createObjectURL(blob);
-                const link: HTMLAnchorElement = document.createElement("a");
-                link.href = url;
-                link.download = `${title || "chart"}.png`;
-                link.click();
-                URL.revokeObjectURL(url);
-              }
-            });
-          }
-        };
-
-        img.src =
-          "data:image/svg+xml;base64," +
-          btoa(unescape(encodeURIComponent(svgData)));
-      }
     }
   };
 
-  // Reset all settings
   const resetSettings = () => {
-    setChartType(initialType || "bar");
+    setChartType(adapted.type);
     setShowGrid(true);
     setShowLegend(true);
     setShowTooltip(true);
@@ -285,136 +414,124 @@ const EnhancedChartDisplay = ({
     setIsFullscreen(false);
   };
 
-  // Calculate statistics
   const stats = useMemo(() => {
-    if (!data || data.length === 0) return null;
-
-    const values = data
-      .map((d) => d.value || d.category || 0)
-      .filter((v) => typeof v === "number");
-    if (values.length === 0) return null;
-
-    const total = values.reduce((sum, val) => sum + val, 0);
-    const avg = total / values.length;
-    const max = Math.max(...values);
-    const min = Math.min(...values);
-    const maxItem = data.find((d) => (d.value || d.category) === max);
-    const minItem = data.find((d) => (d.value || d.category) === min);
-
-    // Simple trend calculation
-    const n = values.length;
-    const sumX = values.reduce((sum, _, i) => sum + i, 0);
-    const sumY = total;
-    const sumXY = values.reduce((sum, val, i) => sum + i * val, 0);
-    const sumXX = values.reduce((sum, _, i) => sum + i * i, 0);
-    const slope =
-      n > 1 ? (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX) : 0;
-
+    if (!adapted.data.length) return null;
+    const vals = adapted.data.map((d) => d.value).filter((v) => !isNaN(v));
+    if (vals.length <= 1) return null;
+    const total = vals.reduce((s, v) => s + v, 0);
+    const avg = total / vals.length;
+    const max = Math.max(...vals);
+    const min = Math.min(...vals);
+    const maxItem = adapted.data.find((d) => d.value === max);
+    const minItem = adapted.data.find((d) => d.value === min);
+    const n = vals.length;
+    const sumX = vals.reduce((s, _, i) => s + i, 0);
+    const sumXY = vals.reduce((s, v, i) => s + i * v, 0);
+    const sumXX = vals.reduce((s, _, i) => s + i * i, 0);
+    const slope = (n * sumXY - sumX * total) / (n * sumXX - sumX * sumX) || 0;
+    const trend: "up" | "down" | "stable" =
+      slope > 0.1 ? "up" : slope < -0.1 ? "down" : "stable";
     return {
       total: total.toLocaleString(),
       average: avg.toFixed(2),
-      max: {
-        value: max.toLocaleString(),
-        name: maxItem?.name || maxItem?.category,
-      },
-      min: {
-        value: min.toLocaleString(),
-        name: minItem?.name || minItem?.category,
-      },
-      count: data.length,
-      trend: slope > 0.1 ? "up" : slope < -0.1 ? "down" : "stable",
-    } as {
-      total: string;
-      average: string;
-      max: { value: string; name: string | undefined };
-      min: { value: string; name: string | undefined };
-      count: number;
-      trend: "up" | "down" | "stable";
+      max: { value: max.toLocaleString(), name: maxItem?.name },
+      min: { value: min.toLocaleString(), name: minItem?.name },
+      count: adapted.data.length,
+      trend,
     };
-  }, [data]);
+  }, [adapted.data]);
 
-  const getTrendIcon = (
-    trend: "up" | "down" | "stable"
-  ): React.ReactElement => {
-    switch (trend) {
-      case "up":
-        return <TrendingUp className="h-4 w-4 text-green-500" />;
-      case "down":
-        return <TrendingDown className="h-4 w-4 text-red-500" />;
-      default:
-        return <Minus className="h-4 w-4 text-muted-foreground" />;
-    }
+  const getTrendIcon = (trend: "up" | "down" | "stable"): ReactElement => {
+    if (trend === "up")
+      return <TrendingUp className="h-4 w-4 text-green-500" />;
+    if (trend === "down")
+      return <TrendingDown className="h-4 w-4 text-red-500" />;
+    return (
+      <Minus
+        className={`h-4 w-4 ${isDark ? "text-gray-400" : "text-gray-500"}`}
+      />
+    );
   };
 
-  // Normalize data structure for different chart types
-  const normalizedData = useMemo(() => {
-    if (!data) return [];
-    return data.map((item) => ({
-      name: item.name || item.category || "Unknown",
-      ...item,
-      value: item.value || 0,
-    }));
-  }, [data]);
-
   const renderChart = () => {
-    const chartHeight = isFullscreen ? 600 : 400;
+    const height = isFullscreen ? 600 : 400;
+    const axisColor = isDark ? "#9ca3af" : "#6b7280";
+    const gridColor = isDark ? "#374151" : "#e5e7eb";
+
+    const commonProps = {
+      margin: { top: 20, right: 30, left: 20, bottom: 60 },
+    };
 
     switch (chartType) {
       case "bar":
         return (
-          <ResponsiveContainer width="100%" height={chartHeight}>
-            <BarChart
-              data={normalizedData}
-              margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-            >
+          <ResponsiveContainer width="100%" height={height}>
+            <BarChart data={adapted.data} {...commonProps}>
               {showGrid && (
-                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke={gridColor}
+                  opacity={0.5}
+                />
               )}
               <XAxis
                 dataKey="name"
-                tick={{ fontSize: 12 }}
-                angle={normalizedData.length > 5 ? -45 : 0}
-                textAnchor={normalizedData.length > 5 ? "end" : "middle"}
+                angle={adapted.data.length > 5 ? -45 : 0}
+                textAnchor={adapted.data.length > 5 ? "end" : "middle"}
                 height={60}
+                tick={{ fontSize: 12, fill: axisColor }}
+                axisLine={{ stroke: axisColor }}
+                tickLine={{ stroke: axisColor }}
               />
-              <YAxis tick={{ fontSize: 12 }} />
-              {showTooltip && <Tooltip content={<CustomTooltip />} />}
-              {showLegend && <Legend />}
-              <Bar
-                dataKey="value"
-                fill={currentColors[0]}
-                radius={[4, 4, 0, 0]}
+              <YAxis
+                tick={{ fontSize: 12, fill: axisColor }}
+                axisLine={{ stroke: axisColor }}
+                tickLine={{ stroke: axisColor }}
               />
+              {showTooltip && (
+                <Tooltip content={<CustomTooltip isDark={isDark} />} />
+              )}
+              {showLegend && <Legend wrapperStyle={{ color: axisColor }} />}
+              <Bar dataKey="value" fill={colors[0]} radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         );
 
       case "line":
         return (
-          <ResponsiveContainer width="100%" height={chartHeight}>
-            <LineChart
-              data={normalizedData}
-              margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-            >
+          <ResponsiveContainer width="100%" height={height}>
+            <LineChart data={adapted.data} {...commonProps}>
               {showGrid && (
-                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke={gridColor}
+                  opacity={0.5}
+                />
               )}
               <XAxis
                 dataKey="name"
-                tick={{ fontSize: 12 }}
                 angle={-45}
                 textAnchor="end"
                 height={60}
+                tick={{ fontSize: 12, fill: axisColor }}
+                axisLine={{ stroke: axisColor }}
+                tickLine={{ stroke: axisColor }}
               />
-              <YAxis tick={{ fontSize: 12 }} />
-              {showTooltip && <Tooltip content={<CustomTooltip />} />}
-              {showLegend && <Legend />}
+              <YAxis
+                tick={{ fontSize: 12, fill: axisColor }}
+                axisLine={{ stroke: axisColor }}
+                tickLine={{ stroke: axisColor }}
+              />
+              {showTooltip && (
+                <Tooltip content={<CustomTooltip isDark={isDark} />} />
+              )}
+              {showLegend && <Legend wrapperStyle={{ color: axisColor }} />}
               <Line
                 type="monotone"
                 dataKey="value"
-                stroke={currentColors[0]}
+                stroke={colors[0]}
                 strokeWidth={3}
-                dot={{ fill: currentColors[0], strokeWidth: 2, r: 4 }}
+                dot={{ fill: colors[0], strokeWidth: 2, r: 4 }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -422,29 +539,38 @@ const EnhancedChartDisplay = ({
 
       case "area":
         return (
-          <ResponsiveContainer width="100%" height={chartHeight}>
-            <AreaChart
-              data={normalizedData}
-              margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-            >
+          <ResponsiveContainer width="100%" height={height}>
+            <AreaChart data={adapted.data} {...commonProps}>
               {showGrid && (
-                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke={gridColor}
+                  opacity={0.5}
+                />
               )}
               <XAxis
                 dataKey="name"
-                tick={{ fontSize: 12 }}
                 angle={-45}
                 textAnchor="end"
                 height={60}
+                tick={{ fontSize: 12, fill: axisColor }}
+                axisLine={{ stroke: axisColor }}
+                tickLine={{ stroke: axisColor }}
               />
-              <YAxis tick={{ fontSize: 12 }} />
-              {showTooltip && <Tooltip content={<CustomTooltip />} />}
-              {showLegend && <Legend />}
+              <YAxis
+                tick={{ fontSize: 12, fill: axisColor }}
+                axisLine={{ stroke: axisColor }}
+                tickLine={{ stroke: axisColor }}
+              />
+              {showTooltip && (
+                <Tooltip content={<CustomTooltip isDark={isDark} />} />
+              )}
+              {showLegend && <Legend wrapperStyle={{ color: axisColor }} />}
               <Area
                 type="monotone"
                 dataKey="value"
-                stroke={currentColors[0]}
-                fill={currentColors[0]}
+                stroke={colors[0]}
+                fill={colors[0]}
                 fillOpacity={0.6}
                 strokeWidth={2}
               />
@@ -454,398 +580,395 @@ const EnhancedChartDisplay = ({
 
       case "pie":
         return (
-          <ResponsiveContainer width="100%" height={chartHeight}>
+          <ResponsiveContainer width="100%" height={height}>
             <PieChart>
               <Pie
-                data={normalizedData}
+                data={adapted.data}
+                dataKey="value"
                 cx="50%"
                 cy="50%"
+                outerRadius={isFullscreen ? 180 : 120}
                 labelLine={false}
                 label={({ name, percent }) =>
                   `${name}: ${(percent * 100).toFixed(1)}%`
                 }
-                outerRadius={isFullscreen ? 180 : 120}
-                fill="#8884d8"
-                dataKey="value"
               >
-                {normalizedData.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={currentColors[index % currentColors.length]}
-                  />
+                {adapted.data.map((entry, idx) => (
+                  <Cell key={idx} fill={colors[idx % colors.length]} />
                 ))}
               </Pie>
-              {showTooltip && <Tooltip content={<CustomTooltip />} />}
-              {showLegend && <Legend />}
+              {showTooltip && (
+                <Tooltip content={<CustomTooltip isDark={isDark} />} />
+              )}
+              {showLegend && <Legend wrapperStyle={{ color: axisColor }} />}
             </PieChart>
           </ResponsiveContainer>
         );
 
       case "scatter":
         return (
-          <ResponsiveContainer width="100%" height={chartHeight}>
-            <ScatterChart
-              data={normalizedData}
-              margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-            >
+          <ResponsiveContainer width="100%" height={height}>
+            <ScatterChart {...commonProps}>
               {showGrid && (
-                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke={gridColor}
+                  opacity={0.5}
+                />
               )}
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis dataKey="value" tick={{ fontSize: 12 }} />
-              {showTooltip && <Tooltip content={<CustomTooltip />} />}
-              {showLegend && <Legend />}
-              <Scatter dataKey="value" fill={currentColors[0]} />
+              <XAxis
+                type="category"
+                dataKey="name"
+                tick={{ fontSize: 12, fill: axisColor }}
+                axisLine={{ stroke: axisColor }}
+                tickLine={{ stroke: axisColor }}
+              />
+              <YAxis
+                type="number"
+                dataKey="value"
+                tick={{ fontSize: 12, fill: axisColor }}
+                axisLine={{ stroke: axisColor }}
+                tickLine={{ stroke: axisColor }}
+              />
+              {showTooltip && (
+                <Tooltip content={<CustomTooltip isDark={isDark} />} />
+              )}
+              {showLegend && <Legend wrapperStyle={{ color: axisColor }} />}
+              <Scatter data={adapted.data} dataKey="value" fill={colors[0]} />
             </ScatterChart>
           </ResponsiveContainer>
         );
 
       default:
         return (
-          <div className="flex items-center justify-center h-64 text-muted-foreground">
+          <div
+            className={`flex items-center justify-center h-64 ${
+              isDark ? "text-gray-400" : "text-gray-500"
+            }`}
+          >
             Unsupported chart type
           </div>
         );
     }
   };
 
-  if (!data || data.length === 0) {
+  if (!adapted.data.length) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center h-64">
+      <div
+        className={`rounded-lg shadow-lg p-6 ${className} ${
+          isDark ? "bg-gray-800 text-white" : "bg-white text-gray-900"
+        }`}
+      >
+        <div className="flex items-center justify-center h-64">
           <div className="text-center space-y-2">
-            <Info className="h-8 w-8 mx-auto text-muted-foreground" />
-            <p className="text-muted-foreground">
+            <Info
+              className={`h-8 w-8 mx-auto ${
+                isDark ? "text-gray-500" : "text-gray-400"
+              }`}
+            />
+            <p className={isDark ? "text-gray-400" : "text-gray-500"}>
               No data available to display
             </p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
+  const containerClasses = `${
+    isFullscreen ? "fixed inset-0 z-50 p-6 overflow-auto" : ""
+  } ${className} ${isDark ? "bg-gray-900" : "bg-gray-50"}`;
+
+  const cardClasses = `rounded-lg shadow-lg p-6 ${
+    isDark ? "bg-gray-800 text-white" : "bg-white text-gray-900"
+  }`;
+
+  const buttonClasses = `p-2 rounded-lg transition-colors ${
+    isDark
+      ? "hover:bg-gray-700 text-gray-300 hover:text-white"
+      : "hover:bg-gray-100 text-gray-600 hover:text-gray-900"
+  }`;
+
+  const controlsClasses = `mb-6 p-4 rounded-lg space-y-4 ${
+    isDark ? "bg-gray-700" : "bg-gray-50"
+  }`;
+
+  const inputClasses = `w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+    isDark
+      ? "bg-gray-600 border-gray-500 text-white placeholder-gray-400"
+      : "bg-white border-gray-300 text-gray-900"
+  }`;
+
   return (
-    <div
-      className={`space-y-6 ${
-        isFullscreen ? "fixed inset-0 z-50 bg-background p-6 overflow-auto" : ""
-      }`}
-    >
-      <Card>
-        <CardHeader className="space-y-4">
-          <div className="flex items-start justify-between">
-            <div className="space-y-2">
-              <CardTitle>{title}</CardTitle>
-              {explanation && <CardDescription>{explanation}</CardDescription>}
-            </div>
+    <div className={containerClasses}>
+      <div className={cardClasses}>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-bold">{adapted.title}</h2>
+            <p
+              className={`text-sm ${
+                isDark ? "text-gray-400" : "text-gray-500"
+              }`}
+            >
+              {adapted.data.length} data points
+            </p>
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setTheme(isDark ? "light" : "dark")}
+              className={buttonClasses}
+              title="Toggle theme"
+            >
+              {isDark ? (
+                <Sun className="h-4 w-4" />
+              ) : (
+                <Moon className="h-4 w-4" />
+              )}
+            </button>
+            <button
+              onClick={() => setShowControls(!showControls)}
+              className={buttonClasses}
+              title="Settings"
+            >
+              <Settings className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              className={buttonClasses}
+              title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+            >
+              {isFullscreen ? (
+                <Minimize2 className="h-4 w-4" />
+              ) : (
+                <Maximize2 className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+        </div>
 
-            {/* Main Controls */}
-            <div className="flex items-center gap-2">
-              <Select value={chartType} onValueChange={setChartType}>
-                <SelectTrigger className="w-[160px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
+        {/* Controls */}
+        {showControls && (
+          <div className={controlsClasses}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <label
+                  className={`block text-sm font-medium mb-2 ${
+                    isDark ? "text-gray-300" : "text-gray-700"
+                  }`}
+                >
+                  Chart Type
+                </label>
+                <select
+                  value={chartType}
+                  onChange={(e) => setChartType(e.target.value)}
+                  className={inputClasses}
+                >
                   {CHART_TYPES.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      <span className="flex items-center gap-2">
-                        <span>{type.icon}</span>
-                        {type.label}
-                      </span>
-                    </SelectItem>
+                    <option key={type.value} value={type.value}>
+                      {type.icon} {type.label}
+                    </option>
                   ))}
-                </SelectContent>
-              </Select>
-
-              {/* Download Menu */}
-              <div className="relative">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => downloadChart("png")}
-                  className="flex items-center gap-2"
+                </select>
+              </div>
+              <div>
+                <label
+                  className={`block text-sm font-medium mb-2 ${
+                    isDark ? "text-gray-300" : "text-gray-700"
+                  }`}
+                >
+                  Color Scheme
+                </label>
+                <select
+                  value={colorScheme}
+                  onChange={(e) => setColorScheme(e.target.value)}
+                  className={inputClasses}
+                >
+                  {Object.keys(LIGHT_COLORS).map((scheme) => (
+                    <option key={scheme} value={scheme}>
+                      {scheme.charAt(0).toUpperCase() + scheme.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-baseline-last space-x-4">
+                {/* <button
+                  onClick={resetSettings}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-md transition-colors ${
+                    isDark
+                      ? "bg-gray-600 hover:bg-gray-500 text-white"
+                      : "bg-gray-200 hover:bg-gray-300 text-gray-900"
+                  }`}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  <span>Reset</span>
+                </button> */}
+                <button
+                  onClick={() => downloadChart("json")}
+                  className="flex items-center space-x-2 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors"
                 >
                   <Download className="h-4 w-4" />
-                  Download
-                </Button>
+                  <span>JSON</span>
+                </button>
               </div>
-
-              {/* Settings Toggle */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowControls(!showControls)}
-                className="flex items-center gap-2"
-              >
-                <Settings className="h-4 w-4" />
-                {showControls ? "Hide" : "Show"} Controls
-              </Button>
-
-              {/* Fullscreen Toggle */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsFullscreen(!isFullscreen)}
-              >
-                {isFullscreen ? (
-                  <Minimize2 className="h-4 w-4" />
-                ) : (
-                  <Maximize2 className="h-4 w-4" />
-                )}
-              </Button>
-
-              {isFullscreen && (
-                <Button
-                  variant="outline"
-                  onClick={() => setIsFullscreen(false)}
-                >
-                  Close
-                </Button>
-              )}
+            </div>
+            <div className="flex items-center space-x-6">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={showGrid}
+                  onChange={(e) => setShowGrid(e.target.checked)}
+                  className="mr-2"
+                />
+                <span className={isDark ? "text-gray-300" : "text-gray-700"}>
+                  Show Grid
+                </span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={showLegend}
+                  onChange={(e) => setShowLegend(e.target.checked)}
+                  className="mr-2"
+                />
+                <span className={isDark ? "text-gray-300" : "text-gray-700"}>
+                  Show Legend
+                </span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={showTooltip}
+                  onChange={(e) => setShowTooltip(e.target.checked)}
+                  className="mr-2"
+                />
+                <span className={isDark ? "text-gray-300" : "text-gray-700"}>
+                  Show Tooltip
+                </span>
+              </label>
             </div>
           </div>
+        )}
 
-          {/* Extended Controls Panel */}
-          {showControls && (
-            <div className="p-4 bg-muted/50 rounded-lg space-y-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {/* Display Options */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Display Options</Label>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="show-grid" className="text-xs">
-                        Grid Lines
-                      </Label>
-                      <Switch
-                        id="show-grid"
-                        checked={showGrid}
-                        onCheckedChange={setShowGrid}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="show-legend" className="text-xs">
-                        Legend
-                      </Label>
-                      <Switch
-                        id="show-legend"
-                        checked={showLegend}
-                        onCheckedChange={setShowLegend}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="show-tooltip" className="text-xs">
-                        Tooltips
-                      </Label>
-                      <Switch
-                        id="show-tooltip"
-                        checked={showTooltip}
-                        onCheckedChange={setShowTooltip}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Color Scheme */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Color Scheme</Label>
-                  <Select value={colorScheme} onValueChange={setColorScheme}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="default">Default</SelectItem>
-                      <SelectItem value="blues">Blues</SelectItem>
-                      <SelectItem value="greens">Greens</SelectItem>
-                      <SelectItem value="warm">Warm</SelectItem>
-                      <SelectItem value="cool">Cool</SelectItem>
-                      <SelectItem value="monochrome">Monochrome</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Download Options */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Export Data</Label>
-                  <div className="space-y-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => downloadChart("json")}
-                      className="w-full text-xs"
-                    >
-                      JSON
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => downloadChart("csv")}
-                      className="w-full text-xs"
-                    >
-                      CSV
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Reset */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Reset</Label>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={resetSettings}
-                    className="w-full flex items-center gap-2 text-xs"
-                  >
-                    <RotateCcw className="h-3 w-3" />
-                    Reset All
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Statistics Overview */}
-          {stats && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Total</p>
-                <p className="text-sm font-semibold">{stats.total}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Average</p>
-                <p className="text-sm font-semibold">{stats.average}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Highest</p>
-                <p className="text-sm font-semibold">{stats.max.value}</p>
-                {stats.max.name && (
-                  <Badge variant="secondary" className="text-xs">
-                    {stats.max.name}
-                  </Badge>
-                )}
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Trend</p>
-                <div className="flex items-center gap-1">
-                  {getTrendIcon(stats.trend)}
-                  <span className="text-sm font-semibold capitalize">
-                    {stats.trend}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* AI Insights */}
-          {insights && insights.length > 0 && (
-            <div className="space-y-3">
-              <h4 className="text-sm font-semibold flex items-center gap-2">
-                <Info className="h-4 w-4" />
-                AI Insights
-              </h4>
-              <div className="space-y-2">
-                {insights.map((insight, index) => (
-                  <div
-                    key={index}
-                    className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border-l-4 border-blue-500"
-                  >
-                    <div className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
-                      💡
-                    </div>
-                    <p className="text-sm text-blue-700 dark:text-blue-300">
-                      {insight}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </CardHeader>
-
-        <Separator />
-
-        <CardContent className="pt-6" ref={chartRef}>
+        {/* Chart */}
+        <div ref={chartRef} className="mb-6">
           {renderChart()}
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Data Summary Table - Hidden in fullscreen mode */}
-      {!isFullscreen && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              Data Summary ({normalizedData.length} items)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="max-h-64 overflow-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-2 font-medium">Name</th>
-                    <th className="text-right p-2 font-medium">Value</th>
-                    <th className="text-right p-2 font-medium">Percentage</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {normalizedData.map((item, index) => {
-                    const total = normalizedData.reduce(
-                      (sum, d) => sum + d.value,
-                      0
-                    );
-                    const percentage =
-                      total > 0
-                        ? ((item.value / total) * 100).toFixed(1)
-                        : "0.0";
-                    return (
-                      <tr key={index} className="border-b hover:bg-muted/50">
-                        <td className="p-2">{item.name}</td>
-                        <td className="p-2 text-right font-mono">
-                          {item.value.toLocaleString()}
-                        </td>
-                        <td className="p-2 text-right text-muted-foreground">
-                          {percentage}%
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+        {/* Stats */}
+        {stats && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="text-center">
+              <p
+                className={`text-sm ${
+                  isDark ? "text-gray-400" : "text-gray-500"
+                }`}
+              >
+                Total
+              </p>
+              <p className="text-lg font-semibold">{stats.total}</p>
             </div>
-          </CardContent>
-        </Card>
-      )}
+            <div className="text-center">
+              <p
+                className={`text-sm ${
+                  isDark ? "text-gray-400" : "text-gray-500"
+                }`}
+              >
+                Average
+              </p>
+              <p className="text-lg font-semibold">{stats.average}</p>
+            </div>
+            <div className="text-center">
+              <p
+                className={`text-sm ${
+                  isDark ? "text-gray-400" : "text-gray-500"
+                }`}
+              >
+                Highest
+              </p>
+              <p className="text-lg font-semibold">{stats.max.value}</p>
+              <p
+                className={`text-xs ${
+                  isDark ? "text-gray-500" : "text-gray-400"
+                }`}
+              >
+                {stats.max.name}
+              </p>
+            </div>
+            <div className="text-center flex items-center justify-center">
+              <div className="flex items-center space-x-2">
+                {getTrendIcon(stats.trend)}
+                <span className="text-sm capitalize">{stats.trend}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Insights */}
+        {adapted.insights.length > 0 && (
+          <div
+            className={`rounded-lg p-4 ${
+              isDark ? "bg-blue-900/30 border border-blue-800" : "bg-blue-50"
+            }`}
+          >
+            <h3
+              className={`font-medium mb-2 flex items-center ${
+                isDark ? "text-blue-300" : "text-blue-900"
+              }`}
+            >
+              <Info className="h-4 w-4 mr-2" />
+              Insights
+            </h3>
+            <ul className="space-y-1">
+              {adapted.insights.map((insight, idx) => (
+                <li
+                  key={idx}
+                  className={`text-sm ${
+                    isDark ? "text-blue-200" : "text-blue-800"
+                  }`}
+                >
+                  • {insight}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
 
-export default EnhancedChartDisplay;
-
-// Demo component with sample data
+// Demo with your exact data format
 const ChartDemo = () => {
-  const sampleData = [
-    { name: "January", value: 4000 },
-    { name: "February", value: 3000 },
-    { name: "March", value: 5000 },
-    { name: "April", value: 4500 },
-    { name: "May", value: 6000 },
-    { name: "June", value: 5500 },
-  ];
-
-  const insights = [
-    "Sales show a strong upward trend with June being the peak month",
-    "March and June show the highest performance indicating seasonal patterns",
-    "Average monthly sales are 4,667 units with good consistency",
-  ];
+  // This matches your data format exactly
+  const yourDataFormat = {
+    type: "BarChart",
+    data: [
+      { category: "Alpha Phone", value: 11499.77 },
+      { category: "SmartKettle", value: 1349.85 },
+      { category: "Desk Lamp", value: 1259.58 },
+    ],
+  };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <EnhancedChartDisplay
-        data={sampleData}
-        type="bar"
-        title="Monthly Sales Performance"
-        explanation="This chart shows the sales performance across the first half of the year"
-        insights={insights}
-      />
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
+      <div className="p-4 space-y-6">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">
+            Enhanced Chart Display
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Theme-aware charts that adapt to light and dark modes
+          </p>
+        </div>
+
+        <EnhancedChartDisplay
+          chartData={yourDataFormat}
+          className="max-w-4xl mx-auto"
+        />
+      </div>
     </div>
   );
 };
+
+export default ChartDemo;

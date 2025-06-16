@@ -1,3 +1,4 @@
+@import url("https://api.fontshare.com/v2/css?f[]=excon@100,300,400,500,700,900&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -73,7 +74,6 @@ button:focus-visible {
 } */
 
 @theme inline {
-
   --radius-sm: calc(var(--radius) - 4px);
 
   --radius-md: calc(var(--radius) - 2px);
@@ -143,10 +143,11 @@ button:focus-visible {
   --color-sidebar-border: var(--sidebar-border);
 
   --color-sidebar-ring: var(--sidebar-ring);
+
+  --font-family-excon: "Excon", sans-serif;
 }
 
 :root {
-
   --radius: 0.625rem;
 
   --background: oklch(1 0 0);
@@ -213,7 +214,6 @@ button:focus-visible {
 }
 
 .dark {
-
   --background: oklch(0.145 0 0);
 
   --foreground: oklch(0.985 0 0);

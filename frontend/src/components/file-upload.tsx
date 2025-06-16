@@ -239,7 +239,7 @@ export function FileUpload({ onFileUpload, isLoading }: FileUploadProps) {
         {uploading ? (
           <div className="space-y-4">
             <Loader2 className="h-8 w-8 mx-auto animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground ">
               Uploading and analyzing your file...
             </p>
           </div>
@@ -247,7 +247,7 @@ export function FileUpload({ onFileUpload, isLoading }: FileUploadProps) {
           <div className="space-y-4">
             <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
             <div>
-              <p className="text-lg font-medium">Drop your CSV file here</p>
+              <p className="text-lg font-medium ">Drop your CSV file here</p>
               <p className="text-sm text-muted-foreground">
                 or click to browse files
               </p>
